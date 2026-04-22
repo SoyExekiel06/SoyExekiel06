@@ -1,0 +1,12 @@
+---
+FootballTeams:
+- name: Boca Juniors
+- name: River Plate
+- name: San Lorenzo
+NuevoAtributo: AAA
+capital: CABA
+name: Argentina
+population: '50000000'
+sup: 2780000
+worestCountryEver: true
+...

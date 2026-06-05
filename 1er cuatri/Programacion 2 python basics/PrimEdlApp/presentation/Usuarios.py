@@ -377,7 +377,7 @@ class App:
     # ------------------------------------------------------------------ #
     #  Menú principal                                                      #
     # ------------------------------------------------------------------ #
- 
+    
     def menu_principal(self):
         while self.usuarioActivo:
             print("\n" + "=" * 55)
@@ -400,7 +400,7 @@ class App:
             print("  --- Sesión ---")
             print("  0 - Cerrar sesión")
             print("-" * 55)
- 
+
             match input("> ").strip():
                 case "1":
                     self.abrirCuenta()

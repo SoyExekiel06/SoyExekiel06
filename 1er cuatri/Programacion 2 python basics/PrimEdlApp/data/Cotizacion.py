@@ -1,36 +1,35 @@
-import json
 import os
 import requests as req
 from decimal import Decimal as dc
+from datetime import datetime
+from sqlobject import SQLObjectNotFound
 import dotenv as de
-
+from data import Models as m
+ 
 de.load_dotenv()
-
-
+ 
+ 
 class CotizacionHelper:
     """
-    Maneja la conexión con la API de Fixer y el caché local de monedas/cotizaciones.
+    Maneja la conexión con la API de Fixer y el caché de monedas en la BD.
     """
 
-    MONEDAS_FILE = "monedas.json"
-    BASE_URL = "https://data.fixer.io/api"
-
+    BASE_URL = "http://data.fixer.io/api"
+ 
     def __init__(self):
         self.api_key = os.getenv("FIXERio_KEY")
         if not self.api_key:
-            raise EnvironmentError(
-                "No se encontró API_KEY en el archivo .env"
-            )
-
+            raise EnvironmentError("No se encontró FIXERio_KEY en el archivo .env")
+ 
     # ------------------------------------------------------------------ #
     #  Monedas disponibles                                                 #
     # ------------------------------------------------------------------ #
-
-    def actualizar_monedas(self):
+ 
+    def actualizar_monedas(self) -> dict[str, str]:
         """
-        Descarga la lista de monedas desde Fixer y actualiza monedas.json.
+        Descarga la lista de monedas desde Fixer y actualiza la tabla `moneda`.
         Devuelve el dict {código: nombre}.
-        Lanza excepción si no hay internet Y tampoco existe caché previa.
+        Lanza excepción si no hay internet Y tampoco existe caché en BD.
         """
         try:
             response = req.get(
@@ -40,50 +39,47 @@ class CotizacionHelper:
             )
             response.raise_for_status()
             data = response.json()
-
+ 
             if not data.get("success"):
                 raise ValueError(
                     f"Error de la API Fixer: {data.get('error', {}).get('info', 'desconocido')}"
                 )
-
-            simbolos = data["symbols"]  # {código: nombre}
+ 
+            simbolos = data["symbols"]
             self._guardar_monedas(simbolos)
             return simbolos
-
+ 
         except (req.RequestException, ValueError) as e:
-            # Sin internet o API caída → intentar caché
             cache = self._cargar_monedas_cache()
-            if cache is None:
+            if not cache:
                 raise ConnectionError(
                     f"No hay conexión y tampoco existe caché local: {e}"
                 )
             print(f"[Aviso] Usando caché de monedas ({e})")
             return cache
-
-    def get_monedas(self):
+ 
+    def get_monedas(self) -> dict[str, str]:
         """
-        Devuelve el dict de monedas desde caché.
+        Devuelve el dict de monedas desde caché en BD.
         Si no existe, intenta descargarlo primero.
         """
         cache = self._cargar_monedas_cache()
-        if cache is not None:
+        if cache:
             return cache
-        # No hay caché → intentar descargar
         return self.actualizar_monedas()
-
-    def moneda_valida(self, codigo):
-        """Devuelve True si el código existe en la lista de monedas."""
+ 
+    def moneda_valida(self, codigo: str) -> bool:
+        """Devuelve True si el código existe en la tabla moneda."""
         monedas = self.get_monedas()
         return codigo.upper() in monedas
-
+ 
     # ------------------------------------------------------------------ #
     #  Cotizaciones                                                        #
     # ------------------------------------------------------------------ #
-
-    def get_tasas(self, base="EUR"):
+ 
+    def get_tasas(self, base: str = "EUR") -> dict[str, dc]:
         """
         Obtiene las tasas de cambio en vivo desde Fixer.
-        base: moneda base (solo EUR en plan gratuito).
         Devuelve dict {código: Decimal(tasa)}.
         """
         try:
@@ -94,56 +90,65 @@ class CotizacionHelper:
             )
             response.raise_for_status()
             data = response.json()
-
+ 
             if not data.get("success"):
                 raise ValueError(
                     f"Error de la API Fixer: {data.get('error', {}).get('info', 'desconocido')}"
                 )
-
+ 
             return {k: dc(str(v)) for k, v in data["rates"].items()}
-
+ 
         except req.RequestException as e:
             raise ConnectionError(f"No se pudo obtener cotizaciones: {e}")
-
-    def convertir(self, monto, moneda_origen, moneda_destino):
+ 
+    def convertir(self, monto: dc, moneda_origen: str, moneda_destino: str) -> dc:
         """
         Convierte `monto` de `moneda_origen` a `moneda_destino`.
-        Ambas monedas deben ser códigos ISO 4217 válidos.
         Devuelve Decimal con el resultado.
         """
         monto = dc(str(monto))
         moneda_origen = moneda_origen.upper()
         moneda_destino = moneda_destino.upper()
-
-        tasas = self.get_tasas(base="EUR")  # base EUR (plan gratuito)
-
-        # Fixer devuelve tasas respecto a EUR.
-        # Para convertir A → B: resultado = monto / tasa_A * tasa_B
+ 
+        tasas = self.get_tasas(base="EUR")
+ 
         if moneda_origen != "EUR" and moneda_origen not in tasas:
             raise ValueError(f"Moneda origen '{moneda_origen}' no disponible en las tasas")
         if moneda_destino != "EUR" and moneda_destino not in tasas:
             raise ValueError(f"Moneda destino '{moneda_destino}' no disponible en las tasas")
-
+ 
         tasa_origen = dc("1") if moneda_origen == "EUR" else tasas[moneda_origen]
         tasa_destino = dc("1") if moneda_destino == "EUR" else tasas[moneda_destino]
-
+ 
         resultado = monto / tasa_origen * tasa_destino
-        return resultado.quantize(dc("0.0001"))
-
+        return resultado.quantize(dc("0.01"))
+ 
     # ------------------------------------------------------------------ #
-    #  Persistencia de caché                                               #
+    #  Persistencia de caché en MySQL (reemplaza monedas.json)            #
     # ------------------------------------------------------------------ #
-
-    def _guardar_monedas(self, simbolos):
-        """Guarda el dict {código: nombre} en monedas.json (sin duplicados)."""
-        existentes = self._cargar_monedas_cache() or {}
-        existentes.update(simbolos)          # merge: los nuevos sobreescriben
-        with open(self.MONEDAS_FILE, "w", encoding="utf-8") as f:
-            json.dump(existentes, f, indent=4, ensure_ascii=False)
-
-    def _cargar_monedas_cache(self):
-        """Devuelve el dict desde monedas.json, o None si no existe."""
-        if not os.path.exists(self.MONEDAS_FILE):
+ 
+    def _guardar_monedas(self, simbolos: dict[str, str]) -> None:
+        """
+        Hace un UPSERT de cada moneda en la tabla `moneda`.
+        Equivalente a json.dump en el original pero con SQL.
+        """
+        now = datetime.utcnow()
+        for codigo, nombre in simbolos.items():
+            codigo = codigo.upper()
+            try:
+                moneda = m.Moneda.byCodigo(codigo)
+                moneda.nombre = nombre
+                moneda.updated_at = now
+            except SQLObjectNotFound:
+                m.Moneda(codigo=codigo, nombre=nombre, updated_at=now)
+ 
+    def _cargar_monedas_cache(self) -> dict[str, str] | None:
+        """
+        Devuelve {código: nombre} desde la tabla moneda.
+        Devuelve None si la tabla está vacía.
+        Equivalente a json.load en el original.
+        """
+        registros = list(m.Moneda.select())
+        if not registros:
             return None
-        with open(self.MONEDAS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        return {m.codigo: m.nombre for m in registros}

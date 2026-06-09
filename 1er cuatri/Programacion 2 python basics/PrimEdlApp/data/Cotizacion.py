@@ -121,7 +121,7 @@ class CotizacionHelper:
         tasa_destino = dc("1") if moneda_destino == "EUR" else tasas[moneda_destino]
  
         resultado = monto / tasa_origen * tasa_destino
-        return resultado.quantize(dc("0.01"))
+        return resultado.quantize(dc("0.01"), rounding=ROUND_HALF_UP)
  
     # ------------------------------------------------------------------ #
     #  Persistencia de caché en MySQL (reemplaza monedas.json)            #

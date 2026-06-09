@@ -275,7 +275,7 @@ class App:
 
             # 5. Acreditar en la cuenta
             saldo = self.lh.depositar(self.usuarioActivo, moneda, monto)
-            print(f"\n  ✓ {resultado['mensaje']}")
+            print(f"\n {resultado['mensaje']}")
             print(f"  Nuevo saldo en {moneda}: {saldo}")
 
         except (ValueError, ConnectionError) as e:
@@ -328,7 +328,7 @@ class App:
                 print(f"  Retiro fallido: {resultado.get('mensaje', 'sin detalle')}")
                 return
 
-            print(f"\n  ✓ {resultado['mensaje']}")
+            print(f"\n  {resultado['mensaje']}")
             print(f"  Nuevo saldo en {moneda}: {saldo}")
 
         except (ValueError, ConnectionError, NotImplementedError) as e:
@@ -354,7 +354,7 @@ class App:
     def menu_acceso(self):
         while True:
             print("\n" + "=" * 55)
-            print("         Finanzista MUY Juguete  ")
+            print("         Financista MUY Juguete  ")
             print("=" * 55)
             print("  1 - Iniciar sesión")
             print("  2 - Crear usuario")

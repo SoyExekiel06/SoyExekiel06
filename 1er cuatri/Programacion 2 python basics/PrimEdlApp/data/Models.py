@@ -8,6 +8,7 @@ from sqlobject import (
 )
 from datetime import datetime
  
+
  
 class Usuario(SQLObject):
     """Almacena credenciales. Reemplaza users.json"""

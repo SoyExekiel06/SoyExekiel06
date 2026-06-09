@@ -4,6 +4,7 @@ from sqlobject import SQLObjectNotFound
  
 from .Models import Usuario, Cuenta, Transaccion
  
+
  
 class dataHelper:
  

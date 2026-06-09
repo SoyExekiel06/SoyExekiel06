@@ -3,8 +3,9 @@ import dotenv
 from sqlobject import connectionForURI, sqlhub
 from data import Models as m
 dotenv.load_dotenv()
- 
- 
+
+print 
+
 def get_connection_uri() -> str:
     host = os.getenv("DB_HOST")
     port = os.getenv("DB_PORT")
@@ -13,7 +14,8 @@ def get_connection_uri() -> str:
     database = os.getenv("DB_NAME")
     return f"mysql://{user}:{password}@{host}:{port}/{database}"
  
- 
+
+
 def init_db():
     """
     Establece la conexión global de SQLObject y crea las tablas si no existen.
@@ -25,7 +27,3 @@ def init_db():
 
     for tabla in (m.Usuario, m.Cuenta, m.Transaccion, m.Moneda):
         tabla.createTable(ifNotExists=True)
-
-    print(m.Cuenta)
-    print(m.Cuenta.__module__)
-    print(m.Cuenta.sqlmeta.columns.keys())

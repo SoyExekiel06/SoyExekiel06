@@ -4,15 +4,13 @@ from sqlobject import connectionForURI, sqlhub
 from data import Models as m
 dotenv.load_dotenv()
 
-print 
-
 def get_connection_uri() -> str:
     host = os.getenv("DB_HOST")
     port = os.getenv("DB_PORT")
     user = os.getenv("DB_USER")
     password = os.getenv("DB_PASSWORD")
     database = os.getenv("DB_NAME")
-    return f"mysql://{user}:{password}@{host}:{port}/{database}"
+    return f"mysql://{user}:{password}@{host}:{port}/{database}?driver=pymysql"
  
 
 

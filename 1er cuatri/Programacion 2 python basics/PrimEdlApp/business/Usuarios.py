@@ -2,13 +2,13 @@ import bcrypt
 import re
 import unicodedata
 from decimal import Decimal
-from data.Usuarios import dataHelper
+from data.BaseDataHelper import BaseDataHelper
 from business.payments.base import PaymentMethodRegistry
  
  
 class LoginHelper:
-    def __init__(self):
-        self.dh = dataHelper()
+    def __init__(self, data_helper: BaseDataHelper):
+        self.dh = data_helper
  
     # ------------------------------------------------------------------ #
     #  Validaciones de entrada                                             #

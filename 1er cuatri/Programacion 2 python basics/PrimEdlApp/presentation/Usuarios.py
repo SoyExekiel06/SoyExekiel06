@@ -3,12 +3,13 @@ from decimal import Decimal, InvalidOperation
 from tabulate import tabulate
 from business.Usuarios import LoginHelper
 from business.Cotizacion import CotizacionService
+from data.BaseDataHelper import BaseDataHelper
  
  
 class App:
-    def __init__(self):
+    def __init__(self, data_helper: BaseDataHelper):
         self.usuarioActivo = None
-        self.lh = LoginHelper()
+        self.lh = LoginHelper(data_helper)
         self.cs = CotizacionService()
  
     # ------------------------------------------------------------------ #
@@ -228,7 +229,7 @@ class App:
             print(f"  Caché actualizado: {n} monedas descargadas.")
         except (ConnectionError, EnvironmentError) as e:
             print(f"  Error: {e}")
-
+ 
     def depositar_con_pago(self):
         """Ingresa fondos a una cuenta usando un método de pago externo."""
         if not self.usuarioActivo:
@@ -238,22 +239,22 @@ class App:
             # 1. Elegir cuenta destino
             moneda = self._input_moneda("Moneda de la cuenta a acreditar (ej: ARS):\n> ")
             self.cs.validar_moneda_cuenta(moneda)
-
+ 
             # 2. Monto
             monto = self._input_monto(f"Monto a ingresar en {moneda}:\n> ")
-
+ 
             # 3. Mostrar métodos disponibles dinámicamente
             from business.payments import PaymentMethodRegistry
             disponibles = PaymentMethodRegistry.disponibles()
             if not disponibles:
                 print("  No hay métodos de pago disponibles.")
                 return
-
+ 
             print("\n  Métodos de pago disponibles:")
             for i, (clave, nombre) in enumerate(disponibles, 1):
                 print(f"  {i} - {nombre}")
             print("  0 - Cancelar")
-
+ 
             opcion = input("> ").strip()
             if opcion == "0":
                 print("  Operación cancelada.")
@@ -261,26 +262,26 @@ class App:
             if not opcion.isdigit() or not (1 <= int(opcion) <= len(disponibles)):
                 print("  Opción inválida.")
                 return
-
+ 
             clave, nombre = disponibles[int(opcion) - 1]
-
+ 
             # 4. Solicitar datos y procesar
             metodo = PaymentMethodRegistry.create(clave)
             datos = metodo.solicitar_datos()
             resultado = metodo.procesar(monto, moneda, datos)
-
+ 
             if not resultado.get("exitoso"):
                 print(f"  Pago rechazado: {resultado.get('mensaje', 'sin detalle')}")
                 return
-
+ 
             # 5. Acreditar en la cuenta
             saldo = self.lh.depositar(self.usuarioActivo, moneda, monto)
             print(f"\n {resultado['mensaje']}")
             print(f"  Nuevo saldo en {moneda}: {saldo}")
-
+ 
         except (ValueError, ConnectionError) as e:
             print(f"  Error: {e}")
-
+ 
     def egresar_con_pago(self):
         """Retira fondos de una cuenta enviándolos a un método de pago externo."""
         if not self.usuarioActivo:
@@ -289,23 +290,23 @@ class App:
         try:
             moneda = self._input_moneda("Moneda de la cuenta a debitar (ej: ARS):\n> ")
             monto = self._input_monto(f"Monto a retirar en {moneda}:\n> ")
-
+ 
             from business.payments import PaymentMethodRegistry
             disponibles = [
             (clave, nombre)
             for clave, nombre in PaymentMethodRegistry.disponibles()
             if self._metodo_soporta_egreso(clave)
             ]
-
+ 
             if not disponibles:
                 print("  No hay métodos de pago que soporten egresos.")
                 return
-
+ 
             print("\n  Métodos disponibles para retiro:")
             for i, (clave, nombre) in enumerate(disponibles, 1):
                 print(f"  {i} - {nombre}")
             print("  0 - Cancelar")
-
+ 
             opcion = input("> ").strip()
             if opcion == "0":
                 print("  Operación cancelada.")
@@ -313,27 +314,27 @@ class App:
             if not opcion.isdigit() or not (1 <= int(opcion) <= len(disponibles)):
                 print("  Opción inválida.")
                 return
-
+ 
             clave, nombre = disponibles[int(opcion) - 1]
             metodo = PaymentMethodRegistry.create(clave)
             datos = metodo.solicitar_datos()
-
+ 
             # Primero descontar saldo, luego intentar envío
             saldo = self.lh.extraer(self.usuarioActivo, moneda, monto)
             resultado = metodo.acreditar(monto, moneda, datos)
-
+ 
             if not resultado.get("exitoso"):
                 # Revertir la extracción si el envío falló
                 self.lh.depositar(self.usuarioActivo, moneda, monto)
                 print(f"  Retiro fallido: {resultado.get('mensaje', 'sin detalle')}")
                 return
-
+ 
             print(f"\n  {resultado['mensaje']}")
             print(f"  Nuevo saldo en {moneda}: {saldo}")
-
+ 
         except (ValueError, ConnectionError, NotImplementedError) as e:
             print(f"  Error: {e}")
-
+ 
     def _metodo_soporta_egreso(self, clave: str) -> bool:
         """Devuelve True si el método implementa acreditar() correctamente."""
         try:
@@ -400,7 +401,7 @@ class App:
             print("  --- Sesión ---")
             print("  0 - Cerrar sesión")
             print("-" * 55)
-
+ 
             match input("> ").strip():
                 case "1":
                     self.abrirCuenta()

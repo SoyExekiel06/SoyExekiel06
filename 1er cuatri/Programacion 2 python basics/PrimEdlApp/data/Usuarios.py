@@ -3,10 +3,10 @@ from datetime import datetime, timezone
 from sqlobject import SQLObjectNotFound
  
 from .Models import Usuario, Cuenta, Transaccion
+from .BaseDataHelper import BaseDataHelper
  
-
  
-class dataHelper:
+class dataHelper(BaseDataHelper):
  
     # ------------------------------------------------------------------ #
     #  Usuarios                                                            #

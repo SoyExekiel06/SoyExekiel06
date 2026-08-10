@@ -1,6 +1,6 @@
 #Archivos
 .env
-users.json
+
 
 
 
@@ -8,4 +8,3 @@ users.json
 __pycache__
 venv
 node_modules
-users

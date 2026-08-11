@@ -1,2 +1,0 @@
-Hola! Soy el contenido del 
-arhivo4.txt
